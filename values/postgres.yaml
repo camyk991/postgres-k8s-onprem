@@ -1,0 +1,15 @@
+cluster:
+  instances: 3
+  storage:
+    size: 5Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+backup:
+  endpointURL: http://172.16.144.1:3900
+  retentionPolicy: 14d
+
+poolers:
+  rw: { instances: 2, loadBalancerIP: 172.16.144.50 }
+  ro: { instances: 2, loadBalancerIP: 172.16.144.51 }

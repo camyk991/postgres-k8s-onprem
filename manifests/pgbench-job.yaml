@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pgbench
+  namespace: database
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pgbench
+          image: postgres:18
+          env:
+            - name: PGHOST
+              value: pg-pooler-rw
+            - name: PGUSER
+              value: app
+            - name: PGDATABASE
+              value: app
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: { name: pg-app, key: password }
+          command: ["bash", "-c"]
+          args:
+            - |
+              pgbench -i -s 10 &&
+              pgbench -c 50 -j 4 -T 60 -P 10 --protocol=simple

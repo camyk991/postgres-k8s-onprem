@@ -1,0 +1,4 @@
+addressPool:
+  name: lab-pool
+  addresses:
+    - 172.16.144.50-172.16.144.60

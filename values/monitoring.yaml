@@ -1,0 +1,29 @@
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+      limits: { memory: 800Mi }
+
+grafana:
+  adminPassword: admin123
+  service:
+    type: LoadBalancer
+    annotations:
+      metallb.io/loadBalancerIPs: 172.16.144.52
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+kubeEtcd: { enabled: false }

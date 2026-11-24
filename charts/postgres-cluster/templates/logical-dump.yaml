@@ -1,0 +1,57 @@
+{{- if .Values.logicalDump.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.cluster.name }}-logical-dump
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.logicalDump.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: dump
+              emptyDir: {}
+          initContainers:
+            - name: pg-dump
+              image: {{ .Values.logicalDump.pgImage }}
+              env:
+                - name: PGHOST
+                  value: {{ .Values.cluster.name }}-ro
+                - name: PGDATABASE
+                  value: {{ .Values.cluster.database }}
+                - name: PGUSER
+                  valueFrom: { secretKeyRef: { name: {{ .Values.logicalDump.userSecret }}, key: username } }
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: {{ .Values.logicalDump.userSecret }}, key: password } }
+              command: ["/bin/sh", "-c"]
+              args:
+                - pg_dump -Fc -f /dump/{{ .Values.cluster.database }}-$(date +%Y%m%d-%H%M).dump && ls -lh /dump
+              volumeMounts:
+                - { name: dump, mountPath: /dump }
+          containers:
+            - name: upload
+              image: {{ .Values.logicalDump.awsCliImage }}
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom: { secretKeyRef: { name: {{ .Values.backup.credentialsSecret }}, key: ACCESS_KEY_ID } }
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom: { secretKeyRef: { name: {{ .Values.backup.credentialsSecret }}, key: ACCESS_SECRET_KEY } }
+                - name: AWS_DEFAULT_REGION
+                  valueFrom: { secretKeyRef: { name: {{ .Values.backup.credentialsSecret }}, key: REGION } }
+                - name: AWS_REQUEST_CHECKSUM_CALCULATION
+                  value: when_required
+                - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+                  value: when_required
+              command: ["/bin/sh", "-c"]
+              args:
+                - aws s3 cp /dump/ {{ .Values.logicalDump.destination }}/ --recursive --endpoint-url {{ .Values.backup.endpointURL }}
+              volumeMounts:
+                - { name: dump, mountPath: /dump }
+{{- end }}

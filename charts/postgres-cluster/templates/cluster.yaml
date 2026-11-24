@@ -1,0 +1,61 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.cluster.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  instances: {{ .Values.cluster.instances }}
+  {{- if .Values.cluster.imageName }}
+  imageName: {{ .Values.cluster.imageName }}
+  {{- end }}
+
+  primaryUpdateStrategy: unsupervised
+  primaryUpdateMethod: switchover
+
+  bootstrap:
+    initdb:
+      database: {{ .Values.cluster.database }}
+      owner: {{ .Values.cluster.owner }}
+
+  postgresql:
+    parameters:
+      {{- toYaml .Values.cluster.postgresql.parameters | nindent 6 }}
+    synchronous:
+      {{- toYaml .Values.cluster.postgresql.synchronous | nindent 6 }}
+
+  {{- if .Values.logicalDump.enabled }}
+  managed:
+    roles:
+      - name: {{ .Values.logicalDump.user }}
+        ensure: present
+        login: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: {{ .Values.logicalDump.userSecret }}
+  {{- end }}
+
+  storage:
+    size: {{ .Values.cluster.storage.size }}
+    storageClass: {{ .Values.cluster.storage.storageClass }}
+  {{- if .Values.cluster.walStorage.enabled }}
+  walStorage:
+    size: {{ .Values.cluster.walStorage.size }}
+    storageClass: {{ .Values.cluster.storage.storageClass }}
+  {{- end }}
+
+  resources:
+    {{- toYaml .Values.cluster.resources | nindent 4 }}
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+
+  {{- if .Values.backup.enabled }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ .Values.cluster.name }}-store
+  {{- end }}

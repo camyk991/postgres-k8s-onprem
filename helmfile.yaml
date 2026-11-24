@@ -1,0 +1,70 @@
+repositories:
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  - name: cnpg
+    url: https://cloudnative-pg.github.io/charts
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+helmDefaults:
+  wait: true
+  timeout: 600
+  createNamespace: true
+
+releases:
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: v1.19.1
+    labels: { tier: platform }
+    values:
+      - crds:
+          enabled: true
+
+  - name: metallb
+    namespace: metallb-system
+    chart: metallb/metallb
+    version: 0.15.2
+    labels: { tier: platform }
+
+  - name: metallb-config
+    namespace: metallb-system
+    chart: ./charts/metallb-config
+    labels: { tier: platform }
+    needs: [metallb-system/metallb]
+    values:
+      - values/metallb-config.yaml
+
+  - name: kube-prometheus-stack
+    namespace: monitoring
+    chart: prometheus-community/kube-prometheus-stack
+    labels: { tier: monitoring }
+    values:
+      - values/monitoring.yaml
+
+  - name: cnpg
+    namespace: cnpg-system
+    chart: cnpg/cloudnative-pg
+    version: 0.29.0
+    labels: { tier: platform }
+
+  - name: plugin-barman-cloud
+    namespace: cnpg-system
+    chart: cnpg/plugin-barman-cloud
+    version: 0.8.0
+    labels: { tier: platform }
+    needs:
+      - cert-manager/cert-manager
+      - cnpg-system/cnpg
+
+  - name: postgres
+    namespace: database
+    chart: ./charts/postgres-cluster
+    labels: { tier: database }
+    needs:
+      - cnpg-system/plugin-barman-cloud
+      - metallb-system/metallb-config
+    values:
+      - values/postgres.yaml

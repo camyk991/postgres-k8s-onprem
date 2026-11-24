@@ -1,0 +1,6 @@
+Cluster {{ .Values.cluster.name }} deployed in namespace {{ .Release.Namespace }}.
+
+Status:        kubectl get cluster,pods,pooler -n {{ .Release.Namespace }}
+Write (rw):    {{ .Values.poolers.rw.loadBalancerIP }}:5432   (PgBouncer -> primary)
+Read (ro):     {{ .Values.poolers.ro.loadBalancerIP }}:5432   (PgBouncer -> replicas)
+App password:  kubectl get secret {{ .Values.cluster.name }}-app -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d

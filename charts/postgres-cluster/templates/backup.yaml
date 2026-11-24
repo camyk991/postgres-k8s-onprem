@@ -1,0 +1,44 @@
+{{- if .Values.backup.enabled }}
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Values.cluster.name }}-store
+  namespace: {{ .Release.Namespace }}
+spec:
+  retentionPolicy: {{ .Values.backup.retentionPolicy | quote }}
+  configuration:
+    destinationPath: {{ .Values.backup.destinationPath }}
+    endpointURL: {{ .Values.backup.endpointURL }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.backup.credentialsSecret }}
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: {{ .Values.backup.credentialsSecret }}
+        key: ACCESS_SECRET_KEY
+      region:
+        name: {{ .Values.backup.credentialsSecret }}
+        key: REGION
+    wal:
+      compression: {{ .Values.backup.compression }}
+      maxParallel: 4
+    data:
+      compression: {{ .Values.backup.compression }}
+      jobs: 2
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Values.cluster.name }}-daily
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  immediate: true
+  backupOwnerReference: self
+  target: prefer-standby
+  cluster:
+    name: {{ .Values.cluster.name }}
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- end }}

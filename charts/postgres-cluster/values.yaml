@@ -1,0 +1,67 @@
+cluster:
+  name: pg
+  instances: 3
+  imageName: ""
+
+  database: app
+  owner: app
+
+  storage:
+    size: 5Gi
+    storageClass: local-path
+  walStorage:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "768MB"
+      work_mem: "4MB"
+      log_min_duration_statement: "500ms"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+
+backup:
+  enabled: true
+  credentialsSecret: garage-s3
+  endpointURL: http://172.16.144.1:3900
+  destinationPath: s3://pg-backups/barman
+  retentionPolicy: 14d
+  compression: gzip
+  schedule: "0 0 2 * * *"
+
+logicalDump:
+  enabled: true
+  user: backup
+  userSecret: pg-backup-user
+  schedule: "30 3 * * *"
+  destination: s3://pg-backups/dumps
+  pgImage: postgres:18
+  awsCliImage: amazon/aws-cli:latest
+
+poolers:
+  rw:
+    enabled: true
+    instances: 2
+    loadBalancerIP: 172.16.144.50
+  ro:
+    enabled: true
+    instances: 2
+    loadBalancerIP: 172.16.144.51
+  poolMode: transaction
+  parameters:
+    max_client_conn: "1000"
+    default_pool_size: "25"
+
+monitoring:
+  enabled: true

@@ -1,0 +1,59 @@
+{{- if and .Values.monitoring.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/PodMonitor") }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Values.cluster.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: {{ .Values.cluster.name }}
+      cnpg.io/podRole: instance
+  podMetricsEndpoints:
+    - port: metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_cnpg_io_cluster]
+          targetLabel: cluster
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Values.cluster.name }}-alerts
+  namespace: {{ .Release.Namespace }}
+spec:
+  groups:
+    - name: postgres
+      rules:
+        - alert: PostgresInstanceDown
+          expr: cnpg_collector_up{cluster="{{ .Values.cluster.name }}"} == 0
+          for: 1m
+          labels: { severity: critical }
+          annotations:
+            summary: "Instance {{`{{ $labels.pod }}`}} is down"
+        - alert: PostgresReplicationLagHigh
+          expr: max by (pod) (cnpg_pg_replication_lag{cluster="{{ .Values.cluster.name }}"}) > 30
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "Replica {{`{{ $labels.pod }}`}} is lagging by more than 30 s"
+        - alert: PostgresConnectionsNearLimit
+          expr: |
+            sum by (pod) (cnpg_backends_total{cluster="{{ .Values.cluster.name }}"})
+              / on (pod) max by (pod) (cnpg_pg_settings_setting{name="max_connections", cluster="{{ .Values.cluster.name }}"}) > 0.8
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{`{{ $labels.pod }}`}}: more than 80% of max_connections in use"
+        - alert: PostgresWALArchivingFailing
+          expr: rate(cnpg_pg_stat_archiver_failed_count{cluster="{{ .Values.cluster.name }}"}[10m]) > 0
+          for: 10m
+          labels: { severity: critical }
+          annotations:
+            summary: "WAL archiving to S3 is failing"
+        - alert: PostgresWALArchivingStuck
+          expr: max by (pod) (cnpg_collector_pg_wal_archive_status{cluster="{{ .Values.cluster.name }}", value="ready"}) > 0
+          for: 10m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{`{{ $labels.pod }}`}}: WAL segments waiting for archiving for more than 10 minutes"
+{{- end }}

@@ -1,0 +1,76 @@
+{{- if .Values.poolers.rw.enabled }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ .Values.cluster.name }}-pooler-rw
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster:
+    name: {{ .Values.cluster.name }}
+  instances: {{ .Values.poolers.rw.instances }}
+  type: rw
+  pgbouncer:
+    poolMode: {{ .Values.poolers.poolMode }}
+    parameters:
+      {{- toYaml .Values.poolers.parameters | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.cluster.name }}-pooler-rw
+    spec:
+      containers: []
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: {{ .Values.cluster.name }}-pooler-rw
+  serviceTemplate:
+    metadata:
+      annotations:
+        metallb.io/loadBalancerIPs: {{ .Values.poolers.rw.loadBalancerIP }}
+    spec:
+      type: LoadBalancer
+{{- end }}
+{{- if .Values.poolers.ro.enabled }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ .Values.cluster.name }}-pooler-ro
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster:
+    name: {{ .Values.cluster.name }}
+  instances: {{ .Values.poolers.ro.instances }}
+  type: ro
+  pgbouncer:
+    poolMode: {{ .Values.poolers.poolMode }}
+    parameters:
+      {{- toYaml .Values.poolers.parameters | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.cluster.name }}-pooler-ro
+    spec:
+      containers: []
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: {{ .Values.cluster.name }}-pooler-ro
+  serviceTemplate:
+    metadata:
+      annotations:
+        metallb.io/loadBalancerIPs: {{ .Values.poolers.ro.loadBalancerIP }}
+    spec:
+      type: LoadBalancer
+{{- end }}
