@@ -7,6 +7,8 @@ repositories:
     url: https://cloudnative-pg.github.io/charts
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
+  - name: cnpg-grafana
+    url: https://cloudnative-pg.github.io/grafana-dashboards
 
 helmDefaults:
   wait: true
@@ -68,3 +70,12 @@ releases:
       - metallb-system/metallb-config
     values:
       - values/postgres.yaml
+
+  - name: cnpg-grafana-dashboard
+    namespace: monitoring
+    chart: cnpg-grafana/cluster
+    version: 0.0.5
+    labels:
+      tier: monitoring
+    needs:
+      - monitoring/kube-prometheus-stack
